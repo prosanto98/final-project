@@ -1,0 +1,371 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { 
+  FaCheckCircle, FaClock, FaUsers, FaStar, FaPlay, 
+  FaFilePdf, FaLink, FaCertificate, FaArrowLeft, 
+  FaBook, FaUser, FaDownload 
+} from 'react-icons/fa';
+
+export default function CourseDetailPage() {
+  const { data: session } = useSession();
+  const params = useParams();
+  const router = useRouter();
+  const courseId = params?.id;
+  
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+
+  useEffect(() => {
+    if (courseId) {
+      fetchCourseDetails();
+      if (session) {
+        checkEnrollment();
+      }
+    } else {
+      setLoading(false);
+      setError('Invalid course ID');
+    }
+  }, [courseId, session]);
+
+  const fetchCourseDetails = async () => {
+    if (!courseId) {
+      setError('Course ID is required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/courses/${courseId}`);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to fetch course' }));
+        throw new Error(errorData.error || `Error ${res.status}: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      if (data.success && data.course) {
+        setCourse(data.course);
+      } else {
+        setError(data.error || 'Course not found');
+      }
+    } catch (error) {
+      console.error('Error fetching course:', error);
+      setError(error.message || 'Failed to load course details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkEnrollment = async () => {
+    if (!courseId || !session) return;
+    
+    try {
+      const res = await fetch(`/api/courses/progress?courseId=${courseId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.progress && data.progress.length > 0) {
+          setEnrolled(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking enrollment:', error);
+    }
+  };
+
+  const handleEnroll = async () => {
+    if (!session) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(`/learning/${courseId}`)}`);
+      return;
+    }
+
+    setEnrolling(true);
+    try {
+      const res = await fetch('/api/courses/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId })
+      });
+      
+      if (res.ok) {
+        setEnrolled(true);
+      }
+    } catch (error) {
+      console.error('Error enrolling:', error);
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-base-100 via-base-100 to-base-200/30">
+        <div className="text-center">
+          <div className="loading loading-spinner loading-lg text-primary mb-4"></div>
+          <p className="text-base-content/60">Loading course details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !course) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-base-100 via-base-100 to-base-200/30">
+        <div className="text-center max-w-md">
+          <FaBook className="text-6xl text-base-content/30 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Course Not Found</h2>
+          <p className="text-base-content/60 mb-4">
+            {error || "The course you're looking for doesn't exist."}
+          </p>
+          <div className="flex gap-4 justify-center">
+            <Link href="/learning" className="btn btn-primary">
+              <FaArrowLeft /> Back to Courses
+            </Link>
+            {error && courseId && (
+              <button onClick={fetchCourseDetails} className="btn btn-outline btn-primary">
+                Try Again
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-base-100 via-base-100 to-base-200/30">
+      {/* Navigation */}
+      <div className="bg-white/80 backdrop-blur border-b">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <Link href="/learning" className="inline-flex items-center gap-2 text-primary hover:text-primary/80 text-sm">
+              <FaArrowLeft /> Back to Courses
+            </Link>
+            <div className="hidden md:block text-xs text-base-content/60 truncate max-w-[70%]">
+              {course.title}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* Hero Section */}
+            <div className="card bg-base-100 shadow-lg">
+              {course.thumbnail && (
+                <figure className="relative overflow-hidden">
+                  <img 
+                    src={course.thumbnail} 
+                    alt={course.title} 
+                    className="w-full h-56 md:h-72 lg:h-80 object-cover"
+                  />
+                </figure>
+              )}
+              
+              <div className="card-body p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="badge badge-primary text-xs">{course.level}</span>
+                  <span className="badge badge-secondary text-xs">{course.category}</span>
+                  {course.isFeatured && (
+                    <span className="badge badge-accent text-xs">FEATURED</span>
+                  )}
+                  {course.price === 0 && (
+                    <span className="badge badge-success text-xs">FREE</span>
+                  )}
+                </div>
+
+                <h1 className="text-2xl md:text-3xl font-bold text-primary mb-3 leading-tight">{course.title}</h1>
+                
+                <div className="flex flex-wrap items-center gap-4 text-base-content/60 mb-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <FaClock className="text-primary/70" /> {course.duration} hours
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FaUsers className="text-secondary/70" /> {course.enrolledStudents || 0} students
+                  </div>
+                  {course.rating > 0 && (
+                    <div className="flex items-center gap-2 font-semibold">
+                      <FaStar className="text-warning" /> {course.rating.toFixed(1)} ({course.totalRatings || 0})
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-base md:text-lg mb-4 leading-relaxed text-base-content/80">{course.description}</p>
+
+                <div className="divider"></div>
+
+                <h2 className="text-xl md:text-2xl font-bold mb-3">What you'll learn</h2>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-5">
+                  {course.tags?.slice(0, 8).map((tag, index) => (
+                    <li key={index} className="flex items-center gap-2 text-sm">
+                      <FaCheckCircle className="text-success" />
+                      <span>{tag}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Course Content */}
+            {course.lessons && course.lessons.length > 0 && (
+              <div className="card bg-base-100 shadow-lg">
+                <div className="card-body p-6">
+                  <h2 className="card-title text-xl md:text-2xl mb-3">
+                    Course Curriculum
+                    <span className="text-base-content/60 font-normal ml-2">
+                      ({course.lessons.length} lessons)
+                    </span>
+                  </h2>
+                  
+                  <div className="space-y-2">
+                    {course.lessons.map((lesson, index) => (
+                      <div key={index} className="flex items-center gap-4 p-4 border border-base-300/60 rounded-lg hover:bg-base-200/60 transition-colors">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate">{lesson.title}</h3>
+                          {lesson.description && (
+                            <p className="text-sm text-base-content/60 line-clamp-2">{lesson.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs md:text-sm text-base-content/60 whitespace-nowrap">
+                          {lesson.contentType === 'video' && <FaPlay />}
+                          {lesson.contentType === 'pdf' && <FaFilePdf />}
+                          {lesson.contentType === 'link' && <FaLink />}
+                          <span>{lesson.duration || 0} min</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Instructor */}
+            <div className="card bg-base-100 shadow-lg">
+              <div className="card-body p-6">
+                <h2 className="card-title text-xl md:text-2xl mb-3">Your Instructor</h2>
+                <div className="flex items-center gap-4">
+                  <div className="avatar placeholder">
+                    <div className="bg-primary text-primary-content rounded-full w-14">
+                      <FaUser className="text-xl" />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base md:text-lg">{course.instructorName}</h3>
+                    <p className="text-base-content/60 text-sm">Expert Instructor</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="card bg-base-100 shadow-lg sticky top-4">
+              <div className="card-body p-6">
+                <div className="text-2xl md:text-3xl font-bold mb-3">
+                  {course.price === 0 ? (
+                    <span className="text-success">FREE</span>
+                  ) : (
+                    `$${course.price}`
+                  )}
+                </div>
+
+                {!session ? (
+                  <div className="space-y-2.5">
+                    <Link 
+                      href={`/login?callbackUrl=${encodeURIComponent(`/learning/${courseId}`)}`} 
+                      className="btn btn-primary btn-md btn-block"
+                    >
+                      Login to Enroll
+                    </Link>
+                    <Link 
+                      href={`/signup?callbackUrl=${encodeURIComponent(`/learning/${courseId}`)}`} 
+                      className="btn btn-outline btn-primary btn-md btn-block"
+                    >
+                      Sign Up Free
+                    </Link>
+                  </div>
+                ) : enrolled ? (
+                  <Link 
+                    href={`/dashboard/candidate/learning/${courseId}`}
+                    className="btn btn-success btn-md btn-block gap-2"
+                  >
+                    <FaCheckCircle /> Start Learning
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleEnroll}
+                    disabled={enrolling}
+                    className="btn btn-primary btn-md btn-block gap-2"
+                  >
+                    {enrolling ? 'Enrolling...' : (
+                      <>
+                        <FaDownload /> Enroll Now
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <div className="divider"></div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-base-content/60">Duration</span>
+                    <span className="font-semibold">{course.duration} hours</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-base-content/60">Level</span>
+                    <span className="font-semibold">{course.level}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-base-content/60">Category</span>
+                    <span className="font-semibold">{course.category}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-base-content/60">Students</span>
+                    <span className="font-semibold">{course.enrolledStudents || 0}</span>
+                  </div>
+                  {course.rating > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-base-content/60">Rating</span>
+                      <span className="font-semibold">
+                        <FaStar className="text-warning inline" /> {course.rating.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="divider"></div>
+
+                <div className="flex flex-col gap-2">
+                  <button className="btn btn-ghost btn-sm md:btn-md btn-block">
+                    <FaCertificate className="mr-2" />
+                    Share Certificate
+                  </button>
+                  <button className="btn btn-ghost btn-sm md:btn-md btn-block">
+                    <FaDownload className="mr-2" />
+                    Download Resources
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
