@@ -8,8 +8,8 @@ const Banner = () => {
         {/* Left side text */}
         <div>
           <h1 className="text-4xl md:text-5xl font-extrabold text-base-content leading-tight">
-            AI-Powered Job Matching &{" "}
-            <span className="text-primary">Career Guidance</span>
+            Smarter Careers, Better Opportunities with {" "}
+            <span className="text-primary">CareerOstad</span>
           </h1>
           <p className="mt-4 text-lg text-neutral">
             Transform your career with intelligent job matching, personalized
