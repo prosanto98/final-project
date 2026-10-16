@@ -29,7 +29,7 @@
     "mongodb": "^6.20.0",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
-    "next": "15.5.23",
+    "next": "15.5.28",
     "next-auth": "^4.24.11",
     "next-cloudinary": "^6.16.0",
     "next-nprogress-bar": "^2.4.7",
