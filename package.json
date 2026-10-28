@@ -33,7 +33,7 @@
     "next-auth": "^4.24.11",
     "next-cloudinary": "^6.16.0",
     "next-nprogress-bar": "^2.4.7",
-    "nodemailer": "^6.9.7",
+    "nodemailer": "^10.1.4",
     "openai": "^5.23.0",
     "react": "19.1.0",
     "react-countup": "^6.5.3",
